@@ -1,24 +1,23 @@
-const { Server } = require("socket.io");
+// socket.js
 const cookie = require("cookie");
 const { initFirebaseAdmin } = require("./firebaseAdmin");
 
 const admin = initFirebaseAdmin();
 const COOKIE_NAME = process.env.COOKIE_NAME || "session";
 
-function attachSocket(httpServer) {
-  const io = new Server(httpServer, {
-    cors: {
-      origin: process.env.WEB_ORIGIN,
-      credentials: true
-    }
-  });
-
+function attachSocket(io) {
+  // 🔹 middleware di autenticazione via cookie Firebase
   io.use(async (socket, next) => {
     try {
       const header = socket.request.headers.cookie || "";
       const cookies = cookie.parse(header);
       const sessionCookie = cookies[COOKIE_NAME];
-      if (!sessionCookie) return next(new Error("unauthorized"));
+      if (!sessionCookie) {
+        // return next(new Error("unauthorized"));
+        // oppure, se vuoi permettere socket anche senza login:
+        socket.user = null;
+        return next();
+      }
 
       const decoded = await admin.auth().verifySessionCookie(sessionCookie, true);
       socket.user = { uid: decoded.sub };
@@ -28,11 +27,12 @@ function attachSocket(httpServer) {
     }
   });
 
-  io.on("connection", (socket) => {
-    socket.emit("hello", { uid: socket.user.uid });
+  // 🔹 handler base (puoi anche lasciarlo, non dà fastidio)
+  // io.on("connection", (socket) => {
+  //   socket.emit("hello", { uid: socket.user?.uid });
 
-    socket.on("ping", () => socket.emit("pong"));
-  });
+  //   socket.on("ping", () => socket.emit("pong"));
+  // });
 
   return io;
 }
