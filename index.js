@@ -161,6 +161,24 @@ app.post('/rooms', async (req, res) => {
   res.json({ roomCode, playerId });
 })
 
+app.get('/rooms/all', async (req, res) => {
+  const allRooms = Array.from(rooms.values()).map(room => ({
+    code: room.code,
+    status: room.status,
+    playerCount: room.players.length,
+    players: room.players.map(p => ({
+      playerId: p.playerId,
+      name: p.name,
+      isAdmin: p.isAdmin,
+      online: p.online,
+      isWaiting: p.isWaiting
+    })),
+    createdAt: room.createdAt,
+    lastActivityAt: room.lastActivityAt
+  }));
+  res.json({ rooms: allRooms });
+})
+
 
 app.get('/rooms/:code', async (req, res) => {
   let roomCode = req.params.code;
