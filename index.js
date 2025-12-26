@@ -11,7 +11,6 @@ const { attachSocket } = require("./socket");
 const { createRoles } = require("./utils");
 const { randomUUID } = require("crypto");
 const { Server } = require("socket.io");
-const { on } = require("events");
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -84,9 +83,13 @@ io.on('connection', (socket) => {
 
   socket.on('disconnect', () => {
     // non lo elimini subito
+    // if (player.socketId === socket.id) {
+    //   player.online = false;
+    // }
     if (player.socketId === socket.id) {
       player.online = false;
     }
+    room.players = room.players.filter(p => p.playerId !== playerId);
     console.log(`Socket disconnected from room ${roomCode} with player ID ${playerId}`);
     io.to(roomCode).emit('room-updated', sanitizeRoom(room));
   });
