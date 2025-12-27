@@ -1,4 +1,4 @@
-    const { initFirebaseAdmin } = require("./firebaseAdmin");
+const { initFirebaseAdmin } = require("./firebaseAdmin");
 const admin = initFirebaseAdmin();
 
 function db() {
@@ -14,7 +14,7 @@ async function ensureUserDoc(uid, seed = {}) {
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       plus: false,
       statistiche: { partite: 0, vittorie: 0, sconfitte: 0, assassino: 0 },
-      personalizzazioni: {entrata: 0, avatar: 0, font: 0, colore: 0},
+      personalizzazioni: { entrata: 0, avatar: 0, font: 0, colore: 0 },
       ...seed
     });
   } else {
