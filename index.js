@@ -108,6 +108,7 @@ io.on('connection', async (socket) => {
   // aggiorno SEMPRE il socketId alla connessione
   // player.socketId = socket.id;
   // player.online = true;
+  console.log('connessione player id:', playerId);
   await redisUpdatePlayer(roomCode, playerId, { socketId: socket.id, online: true });
 
   socket.join(roomCode);
@@ -125,7 +126,7 @@ io.on('connection', async (socket) => {
     // if (p?.socketId === socket.id) {
     //   await redisRemovePlayer(roomCode, playerId);
     // }
-
+    console.log(`Socket disconnected from room ${roomCode} with player ID ${playerId}`);
     const room3 = await redisGetRoom(roomCode);
     if (room3) io.to(roomCode).emit("room-updated", sanitizeRoom(room3));
   });
