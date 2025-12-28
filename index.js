@@ -43,9 +43,13 @@ const io = new Server(server, {
 
 app.set("trust proxy", 1);
 
+
+
 app.use(cors({
   origin: process.env.WEB_ORIGIN,
   credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"]
 }));
 
 app.use(express.json());
@@ -114,13 +118,13 @@ io.on('connection', async (socket) => {
 
   socket.on('disconnect', async () => {
     // non lo elimini subito
-    // if (player.socketId === socket.id) {
-    //   player.online = false;
-    // }
-    const p = await redisUpdatePlayer(roomCode, playerId, { online: false });
-    if (p?.socketId === socket.id) {
-      await redisRemovePlayer(roomCode, playerId);
+    if (player.socketId === socket.id) {
+      player.online = false;
     }
+    const p = await redisUpdatePlayer(roomCode, playerId, { online: false });
+    // if (p?.socketId === socket.id) {
+    //   await redisRemovePlayer(roomCode, playerId);
+    // }
 
     const room3 = await redisGetRoom(roomCode);
     if (room3) io.to(roomCode).emit("room-updated", sanitizeRoom(room3));
@@ -129,16 +133,16 @@ io.on('connection', async (socket) => {
 
 
 
-app.use((req, res, next) => {
-  // res.header("Access-Control-Allow-Origin", "*");
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
-  next();
-});
+// app.use((req, res, next) => {
+//   // res.header("Access-Control-Allow-Origin", "*");
+//   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+//   res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+//   next();
+// });
 
-app.options('*', (req, res) => {
-  res.sendStatus(204);
-});
+// app.options('*', (req, res) => {
+//   res.sendStatus(204);
+// });
 
 attachSocket(io);
 
