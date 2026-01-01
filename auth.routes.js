@@ -15,7 +15,7 @@ router.get("/csrf", (req, res) => {
 });
 
 router.post("/session", requireCsrf, async (req, res) => {
-  const { idToken } = req.body || {};
+  const { idToken, displayName } = req.body || {};
   if (!idToken) return res.status(400).json({ error: "Missing idToken" });
 
   const expiresIn = 1000 * 60 * 60 * 24 * 14;
@@ -23,6 +23,7 @@ router.post("/session", requireCsrf, async (req, res) => {
   try {
     // 1) verifica idToken e prendi uid
     const decodedId = await admin.auth().verifyIdToken(idToken);
+    console.log("Decoded ID token:", decodedId);
     const uid = decodedId.uid;
 
     // 2) crea session cookie
@@ -33,9 +34,18 @@ router.post("/session", requireCsrf, async (req, res) => {
     });
 
     // 3) crea/inizializza doc utente (idempotente)
+    let displayNameToUse = displayName;
+    if (!displayNameToUse) {
+      if (decodedId.name) {
+        displayNameToUse = decodedId.name;
+      }
+      else if (decodedId.email) {
+        displayNameToUse = decodedId.email.split("@")[0];
+      }
+    }
     await ensureUserDoc(uid, {
       email: decodedId.email || null,
-      displayName: decodedId.name || null,
+      displayName: displayNameToUse,
       photoURL: decodedId.picture || null
     });
 
