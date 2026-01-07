@@ -149,7 +149,7 @@ async function redisListRoomsAll() {
 
 async function startGame(req, res, roomCode) {
     const room = await redisGetRoom(roomCode);
-    if (!room) return res.status(404).json({ error: "Room not found" });
+    if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
     if (room.players.length < 1) {
         return res.status(400).json({ error: "Not enough players to start the game" });

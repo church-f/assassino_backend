@@ -7,6 +7,7 @@ const cookieParser = require("cookie-parser");
 
 const authRoutes = require("./auth.routes");
 const meRoutes = require("./me.routes");
+const utilsRoutes = require("./Routes/UtilsRoutes");
 const { attachSocket } = require("./socket");
 const { createRoles, updatePlayerStats } = require("./utils");
 const { randomUUID } = require("crypto");
@@ -29,6 +30,7 @@ const {
   redisListRoomsAll,
 } = require("./rooms.redis");
 const { redis } = require("./redis.client");
+const { db } = require("./firestore");
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
@@ -69,6 +71,7 @@ app.get("/health/redis", async (req, res) => {
 
 
 app.use("/auth", authRoutes);
+app.use("/utils", utilsRoutes);
 app.use(meRoutes);
 
 function sanitizeRoom(room) {
@@ -115,6 +118,8 @@ io.on('connection', async (socket) => {
 
   const room2 = await redisGetRoom(roomCode);
   io.to(roomCode).emit("room-updated", sanitizeRoom(room2));
+  console.log(JSON.stringify(player));
+  io.to(roomCode).emit("room-joined", { playerName: player.name, entrata: player.entrance, playerId: player.playerId });
   console.log(JSON.stringify(room));
 
   socket.on('disconnect', async () => {
@@ -164,10 +169,10 @@ async function generateRoomCode() {
 
 async function startGame(req, res, roomCode) {
   const room = await redisGetRoom(roomCode);
-  if (!room) return res.status(404).json({ error: "Room not found" });
+  if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
   if (room.players.length < (process.env.NODE_ENV === 'production' ? 4 : 1)) {
-    return res.status(400).json({ error: "Not enough players to start the game" });
+    return res.status(400).json({ error: "Non ci sono abbastanza giocatori per iniziare la partita" });
   }
 
   room.status = "in-game";
@@ -198,6 +203,17 @@ app.post('/rooms', async (req, res) => {
   let playerFirebaseUid = req.body.playerFirebaseUid;
   let playerId = randomUUID();
   let roomCode = await generateRoomCode();
+  let entranceEnum
+
+  if (playerFirebaseUid) {
+    const userSnap = await db().collection("users").doc(playerFirebaseUid).get();
+    if (userSnap.exists) {
+      const userData = userSnap.data();
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.entrata === 'number') {
+        entranceEnum = userData.personalizzazioni.entrata;
+      }
+    }
+  }
   let newRoom = {
     code: roomCode, players: [
       {
@@ -208,7 +224,8 @@ app.post('/rooms', async (req, res) => {
         playerId: playerId,
         isWaiting: false,
         online: true,
-        firebaseUid: playerFirebaseUid || null
+        firebaseUid: playerFirebaseUid || null,
+        entrance: entranceEnum || 0
       }
     ],
     createdAt: new Date(),
@@ -228,7 +245,7 @@ app.get('/rooms/all', async (req, res) => {
 
 app.get("/rooms/:code", async (req, res) => {
   const room = await redisGetRoom(req.params.code);
-  if (!room) return res.status(404).json({ error: "Room not found" });
+  if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
   res.json({ exists: true, status: room.status, players: room.players });
 });
@@ -241,7 +258,18 @@ app.post("/rooms/:code/join", async (req, res) => {
   const playerId = randomUUID();
 
   const room = await redisGetRoom(roomCode);
-  if (!room) return res.status(404).json({ error: "Room not found" });
+  if (!room) return res.status(404).json({ error: "Stanza non trovata" });
+
+  let entranceEnum
+  if (playerFirebaseUid) {
+    const userSnap = await db().collection("users").doc(playerFirebaseUid).get();
+    if (userSnap.exists) {
+      const userData = userSnap.data();
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.entrata === 'number') {
+        entranceEnum = userData.personalizzazioni.entrata;
+      }
+    }
+  }
 
   const player = {
     name: playerName,
@@ -251,7 +279,8 @@ app.post("/rooms/:code/join", async (req, res) => {
     playerId,
     isWaiting: room.status !== "lobby",
     online: true,
-    firebaseUid: playerFirebaseUid || null
+    firebaseUid: playerFirebaseUid || null,
+    entrance: entranceEnum || 0
   };
 
   await redisAddPlayer(roomCode, player);
@@ -270,7 +299,7 @@ app.post('/rooms/:code/start', async (req, res) => {
 app.post("/rooms/:code/end", async (req, res) => {
   const roomCode = req.params.code;
   const room = await redisGetRoom(roomCode);
-  if (!room) return res.status(404).json({ error: "Room not found" });
+  if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
   // status ended
   await redisSetRoomMeta(roomCode, { status: "ended", lastActivityAt: new Date() });
@@ -297,7 +326,7 @@ app.post("/rooms/:code/leave", async (req, res) => {
   const playerId = req.body.playerId;
 
   const exists = await redisRoomExists(roomCode);
-  if (!exists) return res.status(404).json({ error: "Room not found" });
+  if (!exists) return res.status(404).json({ error: "Stanza non trovata" });
 
   await redisRemovePlayer(roomCode, playerId);
   await redisSetRoomMeta(roomCode, { lastActivityAt: new Date() });

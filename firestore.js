@@ -13,7 +13,7 @@ async function ensureUserDoc(uid, seed = {}) {
     await ref.set({
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
       plus: false,
-      statistiche: { partite: 0, vittorie: 0, sconfitte: 0, assassino: 0 },
+      statistiche: { partite: 0, vittorie: 0, sconfitte: 0, assassino: 0, sbirro: 0, rianimatrice: 0, complice: 0 },
       personalizzazioni: { entrata: 0, avatar: 0, font: 0, colore: 0 },
       ...seed
     });
