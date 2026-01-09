@@ -84,7 +84,10 @@ function sanitizeRoom(room) {
       isAdmin: p.isAdmin,
       online: !!p.online,
       role: room.status === 'in-game' ? p.role : null,
-      isWaiting: p.isWaiting
+      isWaiting: p.isWaiting,
+      entrance: p.entrance,
+      avatar: p.avatar,
+      color: p.color,
     })),
   };
 }
@@ -119,7 +122,7 @@ io.on('connection', async (socket) => {
   const room2 = await redisGetRoom(roomCode);
   io.to(roomCode).emit("room-updated", sanitizeRoom(room2));
   console.log(JSON.stringify(player));
-  io.to(roomCode).emit("room-joined", { playerName: player.name, entrata: player.entrance, playerId: player.playerId });
+  io.to(roomCode).emit("room-joined", { playerName: player.name, entrata: player.entrance, playerId: player.playerId, avatar: player.avatar });
   console.log(JSON.stringify(room));
 
   socket.on('disconnect', async () => {
@@ -204,6 +207,8 @@ app.post('/rooms', async (req, res) => {
   let playerId = randomUUID();
   let roomCode = await generateRoomCode();
   let entranceEnum
+  let avatarEnum
+  let colorEnum
 
   if (playerFirebaseUid) {
     const userSnap = await db().collection("users").doc(playerFirebaseUid).get();
@@ -211,6 +216,12 @@ app.post('/rooms', async (req, res) => {
       const userData = userSnap.data();
       if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.entrata === 'number') {
         entranceEnum = userData.personalizzazioni.entrata;
+      }
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.avatar === 'number') {
+        avatarEnum = userData.personalizzazioni.avatar;
+      }
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.colore === 'number') {
+        colorEnum = userData.personalizzazioni.colore;
       }
     }
   }
@@ -225,7 +236,9 @@ app.post('/rooms', async (req, res) => {
         isWaiting: false,
         online: true,
         firebaseUid: playerFirebaseUid || null,
-        entrance: entranceEnum || 0
+        entrance: entranceEnum || 0,
+        avatar: avatarEnum || 0,
+        color: colorEnum || 1
       }
     ],
     createdAt: new Date(),
@@ -261,12 +274,20 @@ app.post("/rooms/:code/join", async (req, res) => {
   if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
   let entranceEnum
+  let avatarEnum
+  let colorEnum
   if (playerFirebaseUid) {
     const userSnap = await db().collection("users").doc(playerFirebaseUid).get();
     if (userSnap.exists) {
       const userData = userSnap.data();
       if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.entrata === 'number') {
         entranceEnum = userData.personalizzazioni.entrata;
+      }
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.avatar === 'number') {
+        avatarEnum = userData.personalizzazioni.avatar;
+      }
+      if (userData && userData.personalizzazioni && typeof userData.personalizzazioni.colore === 'number') {
+        colorEnum = userData.personalizzazioni.colore;
       }
     }
   }
@@ -280,7 +301,9 @@ app.post("/rooms/:code/join", async (req, res) => {
     isWaiting: room.status !== "lobby",
     online: true,
     firebaseUid: playerFirebaseUid || null,
-    entrance: entranceEnum || 0
+    entrance: entranceEnum || 0,
+    avatar: avatarEnum || 0,
+    color: colorEnum || 1
   };
 
   await redisAddPlayer(roomCode, player);
