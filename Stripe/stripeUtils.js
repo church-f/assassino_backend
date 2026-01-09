@@ -18,7 +18,7 @@ router.post("/webhook", express.raw({ type: "application/json" }), async (req, r
       console.log(`🔔 Sessione completata per l'utente ${userId}`);
 
       if (userId) {
-        await db.collection("users").doc(userId).update({ plus: true });
+        await db().collection("users").doc(userId).update({ plus: true });
     //     const userDoc = await db.collection("users").doc(userId).get();
     //     const personalizedWords = userDoc.personalizedWords;
     //     const currentTime = Date.now();
