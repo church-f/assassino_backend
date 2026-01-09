@@ -12,6 +12,7 @@ const { attachSocket } = require("./socket");
 const { createRoles, updatePlayerStats } = require("./utils");
 const { randomUUID } = require("crypto");
 const { Server } = require("socket.io");
+const stripeUtils = require("./Stripe/stripeUtils");
 // const { Redis } = require("ioredis");
 // const redis = new Redis(process.env.REDIS_URL);
 const app = express();
@@ -46,7 +47,6 @@ const io = new Server(server, {
 app.set("trust proxy", 1);
 
 
-
 app.use(cors({
   origin: process.env.WEB_ORIGIN,
   credentials: true,
@@ -54,10 +54,12 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization", "X-CSRF-Token"]
 }));
 
-app.use(express.json());
 app.use(cookieParser());
 
 app.get("/health", (req, res) => res.json({ ok: true }));
+app.use("/stripe", stripeUtils);
+app.use(express.json());
+// app.use(express.json()); // Abilitare il parsing JSON
 
 app.get("/health/redis", async (req, res) => {
   try {
