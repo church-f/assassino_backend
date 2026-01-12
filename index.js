@@ -349,14 +349,21 @@ app.post("/rooms/:code/end", async (req, res) => {
 app.post("/rooms/:code/leave", async (req, res) => {
   const roomCode = req.params.code;
   const playerId = req.body.playerId;
+  const kick = req.body.kick; 
 
   const exists = await redisRoomExists(roomCode);
   if (!exists) return res.status(404).json({ error: "Stanza non trovata" });
 
+  const snap = await redisGetRoom(roomCode);
+  console.log("Room after leave:", snap);
+  const player = snap?.players.find(p => p.playerId === playerId);
   await redisRemovePlayer(roomCode, playerId);
   await redisSetRoomMeta(roomCode, { lastActivityAt: new Date() });
 
-  const snap = await redisGetRoom(roomCode);
+  console.log("Player leaving:", player);
+  if(player){
+    io.to(player.socketId).emit("force-disconnect", { kick });
+  }
   if (snap) io.to(roomCode).emit("room-updated", sanitizeRoom(snap));
 
   res.json({ success: true });
