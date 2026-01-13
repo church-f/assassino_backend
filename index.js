@@ -109,23 +109,23 @@ io.use(async (socket, next) => {
 
 io.on('connection', async (socket) => {
   const { roomCode, playerId } = socket.data;
-  console.log(`Socket connected to room ${roomCode} with player ID ${playerId}`);
+  // console.log(`Socket connected to room ${roomCode} with player ID ${playerId}`);
   const room = await redisGetRoom(roomCode);
   const player = room.players.find(p => p.playerId === playerId);
 
   // aggiorno SEMPRE il socketId alla connessione
   // player.socketId = socket.id;
   // player.online = true;
-  console.log(`socket connesso, player: ${player.name}, stanza: ${roomCode}`);
+  // console.log(`socket connesso, player: ${player.name}, stanza: ${roomCode}`);
   await redisUpdatePlayer(roomCode, playerId, { socketId: socket.id, online: true });
 
   socket.join(roomCode);
 
   const room2 = await redisGetRoom(roomCode);
   io.to(roomCode).emit("room-updated", sanitizeRoom(room2));
-  console.log(JSON.stringify(player));
+  // console.log(JSON.stringify(player));
   io.to(roomCode).emit("room-joined", { playerName: player.name, entrata: player.entrance, playerId: player.playerId, avatar: player.avatar });
-  console.log(JSON.stringify(room));
+  // console.log(JSON.stringify(room));
 
   socket.on('disconnect', async () => {
     // non lo elimini subito
@@ -136,7 +136,7 @@ io.on('connection', async (socket) => {
     // if (p?.socketId === socket.id) {
     //   await redisRemovePlayer(roomCode, playerId);
     // }
-    console.log(`Socket disconnected from room ${roomCode} with player ID ${playerId} and name ${player.name}`);
+    // console.log(`Socket disconnected from room ${roomCode} with player ID ${playerId} and name ${player.name}`);
     const room3 = await redisGetRoom(roomCode);
     if (room3) io.to(roomCode).emit("room-updated", sanitizeRoom(room3));
   });
@@ -168,7 +168,7 @@ async function generateRoomCode() {
   if (exists) {
     return generateRoomCode();
   }
-  console.log(`Generated room code: ${code}`);
+  // console.log(`Generated room code: ${code}`);
   return code;
 }
 
@@ -176,7 +176,7 @@ async function startGame(req, res, roomCode) {
   const room = await redisGetRoom(roomCode);
   if (!room) return res.status(404).json({ error: "Stanza non trovata" });
 
-  if (room.players.length < (process.env.NODE_ENV === 'production' ? 4 : 1)) {
+  if (room.players.length < (process.env.NODE_ENV === 'production' ? 4 : 4)) {
     return res.status(400).json({ error: "Non ci sono abbastanza giocatori per iniziare la partita" });
   }
 
@@ -300,7 +300,7 @@ app.post("/rooms/:code/join", async (req, res) => {
     socketId: null,
     role: null,
     playerId,
-    isWaiting: room.status !== "lobby",
+    isWaiting: room.status !== "lobby" && room.status !== "ended",
     online: true,
     firebaseUid: playerFirebaseUid || null,
     entrance: entranceEnum || 0,
@@ -311,7 +311,7 @@ app.post("/rooms/:code/join", async (req, res) => {
   await redisAddPlayer(roomCode, player);
   await redisSetRoomMeta(roomCode, { lastActivityAt: new Date() });
 
-  res.json({ success: true, playerId, isWaiting: room.status !== "lobby" });
+  res.json({ success: true, playerId, isWaiting: room.status !== "lobby" && room.status !== "ended"});
 });
 
 
@@ -349,19 +349,19 @@ app.post("/rooms/:code/end", async (req, res) => {
 app.post("/rooms/:code/leave", async (req, res) => {
   const roomCode = req.params.code;
   const playerId = req.body.playerId;
-  const kick = req.body.kick; 
+  const kick = req.body.kick;
 
   const exists = await redisRoomExists(roomCode);
   if (!exists) return res.status(404).json({ error: "Stanza non trovata" });
 
   const snap = await redisGetRoom(roomCode);
-  console.log("Room after leave:", snap);
+  // console.log("Room after leave:", snap);
   const player = snap?.players.find(p => p.playerId === playerId);
   await redisRemovePlayer(roomCode, playerId);
   await redisSetRoomMeta(roomCode, { lastActivityAt: new Date() });
 
-  console.log("Player leaving:", player);
-  if(player){
+  // console.log("Player leaving:", player);
+  if (player) {
     io.to(player.socketId).emit("force-disconnect", { kick });
   }
   if (snap) io.to(roomCode).emit("room-updated", sanitizeRoom(snap));
@@ -370,7 +370,11 @@ app.post("/rooms/:code/leave", async (req, res) => {
 });
 
 
-const port = Number(process.env.PORT || 5000);
-server.listen(port, () => {
-  console.log(`Backend running on http://localhost:${port}`);
-});
+module.exports = { server, app};
+
+if (require.main === module) {
+  const port = Number(process.env.PORT || 5000);
+  server.listen(port, () => {
+    console.log(`Backend running on http://localhost:${port}`);
+  });
+}
